@@ -22,9 +22,7 @@
         border-radius: 5px;
         box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    .form-group {
-        margin-bottom: 15px;
-    }
+
     label {
         display: block;
         margin-bottom: 5px;
@@ -69,6 +67,53 @@
     th {
         background-color: #f2f2f2;
     }
+
+    .form-group {
+        margin-bottom: 15px;
+        position: relative; /* Needed to position the tooltip correctly */
+    }
+
+    .block-option-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .block-number, .blocks-ago {
+        width: 47%;
+    }
+
+    .info-button {
+        cursor: pointer;
+        margin-left: 5px;
+    }
+
+    .tooltip {
+        visibility: hidden;
+        width: 280px;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+        
+        /* Position the tooltip */
+        position: absolute;
+        z-index: 1;
+        bottom: 100%;
+        left: 50%;
+        margin-left: -140px;
+        
+        /* Fade in tooltip - animation */
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .info-button:hover + .tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
+
 
     /* The switch - the box around the slider */
     .switch {
@@ -160,6 +205,8 @@
     }
     /* End of Loading Overlay Styles */
 
+    
+
 
 </style>
 </head>
@@ -191,10 +238,50 @@
         <label for="eth-address">Ethereum Address:</label>
         <input type="text" id="eth-address" placeholder="Enter Ethereum address">
     </div>
-    <div class="form-group">
-        <label for="block-number">Block Number:</label>
-        <input type="text" id="block-number" placeholder="Enter block number to start checking logs from">
+
+    <div class="block-option-container">
+        <div class="form-group block-number">
+            <label for="block-number">Block Number: <span class="info-button">ℹ️</span></label>
+            <input type="text" id="block-number" placeholder="Enter block number to start checking logs from">
+            <div class="tooltip">
+                Ethereum: 12 seconds/block
+                <br>
+                BSC: 3 seconds/block
+                <br>
+                Polygon: 2 seconds/block
+                <br>
+                Arbitrum: 0.5 seconds/block
+                <br>
+                Avalanche: 2 seconds/block
+                <br>
+                Gnosis: 2 seconds/block
+                <br>
+                Optimism: 2 seconds/block
+
+            </div>
+        </div>
+        or
+        <div class="form-group blocks-ago">
+            <label for="blocks-ago">Blocks Ago: <span class="info-button">ℹ️</span></label>
+            <input type="text" id="blocks-ago" placeholder="Enter number of blocks ago to start checking logs from">
+            <div class="tooltip">
+                Ethereum: 7200 blocks/day
+                <br>
+                BSC: 28800 blocks/day
+                <br>
+                Polygon: 43200 blocks/day 
+                <br>
+                Arbitrum: 172800 blocks/day
+                <br>
+                Avalanche: 43200 blocks/day
+                <br>
+                Gnosis: 43200 blocks/day
+                <br>
+                Optimism: 43200 blocks/day
+            </div>
+        </div>
     </div>
+
     <div class="form-group">
         <label for="chain">Select Chain:</label>
         <select id="chain">
@@ -227,6 +314,30 @@
 <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="text/javascript"></script>
 <script type="text/javascript">
 
+
+    document.querySelectorAll('.info-button').forEach(function(infoButton) {
+        infoButton.addEventListener('mouseover', function() {
+            console.log('Hovered over info button');
+            // Find the closest parent .form-group and then the .tooltip within it
+            var tooltip = this.closest('.form-group').querySelector('.tooltip');
+            if (tooltip) {
+                tooltip.style.visibility = 'visible';
+                tooltip.style.opacity = '1';
+            }
+        });
+
+        infoButton.addEventListener('mouseout', function() {
+            // Find the closest parent .form-group and then the .tooltip within it
+            var tooltip = this.closest('.form-group').querySelector('.tooltip');
+            if (tooltip) {
+                tooltip.style.visibility = 'hidden';
+                tooltip.style.opacity = '0';
+            }
+        });
+    });
+
+
+
     async function delay(ms)
     {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -258,6 +369,9 @@
 
 
     document.getElementById('submit').addEventListener('click', async function() {
+
+        clearTable(); 
+
         let rpcUrl = document.getElementById('rpc-url').value;
         const chain = document.getElementById('chain').value;
         if(rpcUrl === '') {
@@ -270,6 +384,22 @@
                 case "BNB":
                     rpcUrl = "https://bsc-dataseed.binance.org/";
                     break;
+                case "polygon":
+                    rpcUrl = "https://rpc-mainnet.maticvigil.com/";
+                    break;
+                case "arbitrum":
+                    rpcUrl = "https://arb1.arbitrum.io/rpc";
+                    break;
+                case "avalanche":
+                    rpcUrl = "https://api.avax.network/ext/bc/C/rpc";
+                    break;
+                case "gnosis":
+                    rpcUrl = "https://safe-transaction.gnosis.io/";
+                    break;
+                case "optimism":
+                    rpcUrl = "https://mainnet.optimism.io/";
+                    break;
+                
                 
                 default:
                     rpcUrl = "https://cloudflare-eth.com/";
@@ -282,9 +412,31 @@
         // checksum address
         const checksumAddress = ethers.utils.getAddress(userAddress);
         const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        const fromBlock = document.getElementById('block-number').value; // the starting block number
-
         const currentBlock = await provider.getBlockNumber();
+        console.log("get current block: ", currentBlock);
+        let blocksAgo = document.getElementById('blocks-ago').value; // the number of blocks ago to start checking logs from
+        let fromBlock = document.getElementById('block-number').value; // the starting block number
+
+        if(blocksAgo != '') {
+            fromBlock = parseInt(currentBlock) - parseInt(blocksAgo); // override fromBlock if blocksAgo is set
+        }
+
+
+        console.log("fromBlock: ", fromBlock);
+        // TODO:? try and make suggested fromBlocks based on 1 day intervals
+        // 86400 seconds per day
+        // ethereum blocks = 12 seconds, 7200 blocks
+        // bsc blocks = 3 seconds, 28800 blocks
+        // polygon blocks = 2 seconds, 43200 blocks
+        // arbitrum blocks = 0.5 seconds, 172800 blocks
+        // avalanche blocks = 2 seconds, 43200 blocks
+        // gnosis blocks = 2 seconds, 43200 blocks
+        // optimism blocks = 2 seconds, 43200 blocks
+
+        if(fromBlock === '') {
+            fromBlock = parseInt(currentBlock)-800;
+        }
+
         let shoudlDoMultipleCalls = false;
         // make sure fromBlock is less than currentBlock
         if(fromBlock > currentBlock)
@@ -292,9 +444,16 @@
             alert('Block number must be less than current block number');
             return;
         }
+        if(fromBlock < 16241236)
+        {
+            fromBlock = 16241236; // deployment block of settlement
+        }
+
         const diff = currentBlock - fromBlock;
         console.log(diff);
-        if(diff > 1000)
+
+        let batchSize = 799; // max for cloudflare public rpc
+        if(diff > batchSize)
         {
             // we need to do multiple rpc calls for logs in chunks of 1000 from fromBlock to currentBlock
             shoudlDoMultipleCalls = true;
@@ -303,25 +462,27 @@
 
         const paddedAddress = ethers.utils.hexZeroPad(checksumAddress, 32);
         // topic should be OrderFilled (index_topic_1 address maker, bytes32 orderHash, uint256 remaining)
-        const topic = ethers.utils.id('OrderFilled(address,bytes32,uint256)');
-        // const topic = '0xb9ed0243fdf00f0545c63a0af8850c090d86bb46682baec4bf3c496814fe4f02';
+        // const topic = ethers.utils.id('OrderFilled(address,bytes32,uint256)');
+        const topic = '0xb9ed0243fdf00f0545c63a0af8850c090d86bb46682baec4bf3c496814fe4f02'; // constant to reduce computation
 
         let delayTime = 1000; // default 1 second delay
+
 
         let toggleSwitch = document.getElementById('toggle-rpc-delay-switch')
         if(toggleSwitch.checked == true)
         {
             delayTime = 50; // 50ms delay
+            batchSize = 9000; // increase batch size, quicknode allows 10k blocks for logs
         }
 
-        let totalIterations = Math.ceil((currentBlock - parseInt(fromBlock)) / 1000);
+        let totalIterations = Math.ceil((currentBlock - parseInt(fromBlock)) / batchSize);
         let completedIterations = 0;
 
-        for(let i = 0; (parseInt(fromBlock) + (i * 1000)) <= currentBlock; i++)
+        for(let i = 0; (parseInt(fromBlock) + (i * batchSize)) <= currentBlock; i++)
         {
             const filter = {
-                fromBlock: (parseInt(fromBlock) + (i * 1000)),
-                toBlock: (parseInt(fromBlock) + ((i + 1) * 1000)),
+                fromBlock: (parseInt(fromBlock) + (i * batchSize)),
+                toBlock: (parseInt(fromBlock) + ((i + 1) * batchSize)),
                 address: '0x1111111254EEB25477B68fb85Ed929f73A960582', // 1inch v5
                 topics: [topic, [paddedAddress]]
             };
