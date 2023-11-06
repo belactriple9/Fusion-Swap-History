@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethereum RPC Interface</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+    .container {
+        width: 750px;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    label {
+        display: block;
+        margin-bottom: 5px;
+    }
+    .toggle-rpc-delay {
+        align-items: start;
+    }
+    input, select, button {
+        width: 95%;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+    }
+    button {
+        background-color: #5cb85c;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+    button:hover {
+        background-color: #4cae4c;
+    }
+    .table-container {
+        margin-top: 20px;
+        max-height: 500px; /* Adjust this value as needed */
+        overflow: auto;
+        background-color: #fff;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    table, th, td {
+        border: 1px solid #ddd;
+        font-family:'Lucida Console', monospace;
+    }
+    th, td {
+        text-align: left;
+        padding: 8px;
+    }
+    th {
+        background-color: #f2f2f2;
+    }
+
+    /* The switch - the box around the slider */
+    .switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+    }
+
+    /* Hide default HTML checkbox */
+    .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    }
+
+    /* The slider */
+    .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+    }
+
+    .slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+    }
+
+    input:checked + .slider {
+    background-color: #2196F3;
+    }
+
+    input:focus + .slider {
+    box-shadow: 0 0 1px #2196F3;
+    }
+
+    input:checked + .slider:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px);
+    }
+
+    /* Rounded sliders */
+    .slider.round {
+    border-radius: 34px;
+    }
+
+    .slider.round:before {
+    border-radius: 50%;
+    }
+    /* End of switch styling */
+
+    /* Loading Overlay Styles */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5); /* Black with opacity */
+        z-index: 2; /* Ensure it's above other content */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #loading-box {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    }
+
+    #loading-status {
+        margin: 0;
+    }
+    /* End of Loading Overlay Styles */
+
+
+</style>
+</head>
+<body>
+<div class="container">
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none;">
+    <div id="loading-box">
+        <p id="loading-status">Loading...</p>
+    </div>
+</div>
+
+    <div class="toggle-rpc-delay">
+        <div>
+            <label for="toggle-rpc-delay-switch">Disable RPC Delay:</label>
+            <span style="font-size: small;color:grey">Should only be enabled (blue) if you input an unthrottled RPC, this will do 1 call every 50ms</span>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="toggle-rpc-delay-switch">
+            <span class="slider round"></span>
+        </label>
+    </div>
+    
+    <div class="form-group">
+        <label for="rpc-url">RPC URL:</label>
+        <input type="text" id="rpc-url" placeholder="leave blank to use default RPC (may not work)">
+    </div>
+    <div class="form-group">
+        <label for="eth-address">Ethereum Address:</label>
+        <input type="text" id="eth-address" placeholder="Enter Ethereum address">
+    </div>
+    <div class="form-group">
+        <label for="block-number">Block Number:</label>
+        <input type="text" id="block-number" placeholder="Enter block number to start checking logs from">
+    </div>
+    <div class="form-group">
+        <label for="chain">Select Chain:</label>
+        <select id="chain">
+            <option value="mainnet">Ethereum Mainnet</option>
+            <option value="BNB">BNB Mainnet</option>
+            <option value="polygon">Polygon Mainnet</option>
+            <option value="arbitrum">Arbitrum Mainnet</option>
+            <option value="avalanche">Avalance Mainnet</option>
+            <option value="gnosis">Gnosis Mainnet</option>
+            <option value="optimism">Optimism Mainnet</option>
+        </select>
+    </div>
+    <button type="button" id="submit">Submit</button>
+
+    <div class="table-container">
+        <table id="fusion-details">
+            <thead>
+                <tr>
+                    <th>Block Number</th>
+                    <th>Txn Hash</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Fusion details will be populated here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+    async function delay(ms)
+    {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function updateProgress(completed, total) {
+        const overlay = document.getElementById('loading-overlay');
+        const progressElement = document.getElementById('loading-status');
+
+        // Show the overlay when loading starts
+        overlay.style.display = 'flex';
+
+        if (completed < total) {
+            let percentage = Math.round((completed / total) * 100);
+            progressElement.textContent = `Loading... ${percentage}% complete`;
+        } else {
+            progressElement.textContent = 'Loading complete!';
+            // Hide the overlay when loading is done
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 2000); // Hide after 2 seconds to allow the user to see completion
+        }
+    }
+
+    function clearTable() {
+        const tableBody = document.getElementById('fusion-details').getElementsByTagName('tbody')[0];
+        tableBody.innerHTML = '';
+    }
+
+
+    document.getElementById('submit').addEventListener('click', async function() {
+        let rpcUrl = document.getElementById('rpc-url').value;
+        const chain = document.getElementById('chain').value;
+        if(rpcUrl === '') {
+
+            switch(chain)
+            {
+                case "mainnet":
+                    rpcUrl = "https://cloudflare-eth.com/";
+                    break;
+                case "BNB":
+                    rpcUrl = "https://bsc-dataseed.binance.org/";
+                    break;
+                
+                default:
+                    rpcUrl = "https://cloudflare-eth.com/";
+                
+            }
+        }
+
+
+        const userAddress = document.getElementById('eth-address').value;
+        // checksum address
+        const checksumAddress = ethers.utils.getAddress(userAddress);
+        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        const fromBlock = document.getElementById('block-number').value; // the starting block number
+
+        const currentBlock = await provider.getBlockNumber();
+        let shoudlDoMultipleCalls = false;
+        // make sure fromBlock is less than currentBlock
+        if(fromBlock > currentBlock)
+        {
+            alert('Block number must be less than current block number');
+            return;
+        }
+        const diff = currentBlock - fromBlock;
+        console.log(diff);
+        if(diff > 1000)
+        {
+            // we need to do multiple rpc calls for logs in chunks of 1000 from fromBlock to currentBlock
+            shoudlDoMultipleCalls = true;
+        }
+
+
+        const paddedAddress = ethers.utils.hexZeroPad(checksumAddress, 32);
+        // topic should be OrderFilled (index_topic_1 address maker, bytes32 orderHash, uint256 remaining)
+        const topic = ethers.utils.id('OrderFilled(address,bytes32,uint256)');
+        // const topic = '0xb9ed0243fdf00f0545c63a0af8850c090d86bb46682baec4bf3c496814fe4f02';
+
+        let delayTime = 1000; // default 1 second delay
+
+        let toggleSwitch = document.getElementById('toggle-rpc-delay-switch')
+        if(toggleSwitch.checked == true)
+        {
+            delayTime = 50; // 50ms delay
+        }
+
+        let totalIterations = Math.ceil((currentBlock - parseInt(fromBlock)) / 1000);
+        let completedIterations = 0;
+
+        for(let i = 0; (parseInt(fromBlock) + (i * 1000)) <= currentBlock; i++)
+        {
+            const filter = {
+                fromBlock: (parseInt(fromBlock) + (i * 1000)),
+                toBlock: (parseInt(fromBlock) + ((i + 1) * 1000)),
+                address: '0x1111111254EEB25477B68fb85Ed929f73A960582', // 1inch v5
+                topics: [topic, [paddedAddress]]
+            };
+            getLogsByFilter(filter, provider);
+            await delay(delayTime);
+
+            completedIterations++;
+            updateProgress(completedIterations, totalIterations);
+        }
+
+
+    });
+
+
+    async function getLogsByFilter(filter, provider) {
+        provider.getLogs(filter).then((logs) => {
+            const tableBody = document.getElementById('fusion-details').getElementsByTagName('tbody')[0];
+            logs.forEach((log) => {
+                const row = tableBody.insertRow();
+                const blockNumberCell = row.insertCell(0);
+                const txHashCell = row.insertCell(1);
+
+                blockNumberCell.textContent = log.blockNumber;
+                txHashCell.textContent = log.transactionHash;
+            });
+        }).catch((error) => {
+            console.error(error);
+            alert('Failed to retrieve logs for block' + filter.fromBlock + 'to' + filter.toBlock +'. Check the console for more details.');
+            console.log('filter: ', filter, 'provider: ', provider, 'error: ', error)
+        });
+    }
+
+</script>
+</body>
+</html>
